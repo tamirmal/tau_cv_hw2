@@ -25,23 +25,42 @@ def compute_homography_naive(mp_src, mp_dst):
     for lines in gen_A:
         A = np.vstack((A, lines))
 
-    print("A :")
-    print(A)
+#    print("A :")
+#    print(A)
 
     AT_A = np.dot(A.T, A)
     U, s, U_T = np.linalg.svd(AT_A, full_matrices=True)
     H = U[:, 8].reshape(3, 3)
 
-    print("H: ")
-    print(H)
+#    print("H: ")
+#    print(H)
 
     return H
+# End of compute_homography_naive
 
+
+def test_homography(H, mp_src, mp_dst, max_err):
+    pts_src = np.array(mp_src).T.reshape(-1, 1, 2)
+    pts_dst = np.array(mp_dst).T.reshape(-1, 1, 2)
+
+    pts_src_in_dst = cv2.perspectiveTransform(pts_src, H)
+
+    pts_src_in_dst = pts_src_in_dst.reshape(-1, 2)
+    pts_dst = pts_dst.reshape(-1, 2)
+    dist = np.linalg.norm(pts_src_in_dst - pts_dst, axis=1)
+
+    fit_percent = sum(dist < max_err)/len(dist)
+
+    valid_norm = dist[dist < max_err]
+    avg_mse = sum(valid_norm)/len(valid_norm)
+
+    return fit_percent, avg_mse
+# End of test_homography()
 
 ###############################################################################
 # UNIT TEST
 ###############################################################################
-def warpTwoImages(img_dst, img_src, H):
+def warpTwoImages(img_dst, img_src, H, visualize = False):
     """
     For understanding this warping process,
     Look on this example
@@ -107,9 +126,10 @@ def warpTwoImages(img_dst, img_src, H):
     # 5) Apply final homography
     result = cv2.warpPerspective(img_src, Ht.dot(H), (xmax-xmin, ymax-ymin))
 
-    if False:
+    if visualize:
         plt.figure()
         plt.imshow(result)
+        plt.xlabel("warpTwoImages: src image BEFORE appending of dst")
         plt.show()
 
     # 6) Append dst image
@@ -121,27 +141,106 @@ def warpTwoImages(img_dst, img_src, H):
 def main():
     img_src = mpimg.imread('src.jpg')
     img_dst = mpimg.imread('dst.jpg')
+
+    ######################################
+    # Part A
+    ######################################
+    # q2:5
+    print("Matches_Perfect")
+    visualize = False
+
     matches = scipy.io.loadmat('matches_perfect') #loading perfect matches
     match_p_dst = matches['match_p_dst'].astype(float)
     match_p_src = matches['match_p_src'].astype(float)
 
     H = compute_homography_naive(match_p_src, match_p_dst)
     warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
-    f, axarr = plt.subplots(2, 2)
-    axarr[0][0].imshow(img_src)
-    axarr[0][0].set_title("src")
-    axarr[0][1].imshow(img_dst)
-    axarr[0][1].set_title("dst")
-    axarr[1][0].imshow(warp_src)
-    axarr[1][0].set_title("warp_src")
-    axarr[1][1].imshow(img_dst)
-    axarr[1][1].set_title("dast")
-    plt.show()
 
-    combined = warpTwoImages(img_dst, img_src, H)
-    plt.figure()
-    plt.imshow(combined)
-    plt.show()
+    if visualize:
+        plt.figure()
+        plt.imshow(warp_src)
+        plt.xlabel("warp src")
+        plt.show()
+
+    if visualize:
+        f, axarr = plt.subplots(2, 2)
+        axarr[0][0].imshow(img_src)
+        axarr[0][0].set_title("src")
+        axarr[0][1].imshow(img_dst)
+        axarr[0][1].set_title("dst")
+        axarr[1][0].imshow(warp_src)
+        axarr[1][0].set_title("warp_src")
+        axarr[1][1].imshow(img_dst)
+        axarr[1][1].set_title("dst")
+        plt.show()
+
+    combined = warpTwoImages(img_dst, img_src, H, visualize)
+    if visualize:
+        plt.figure()
+        plt.imshow(combined)
+        plt.xlabel("combined")
+        plt.show()
+
+    # q6
+    print("Matches")
+    visualize = False
+
+    matches = scipy.io.loadmat('matches')  # loading matches
+    match_p_dst = matches['match_p_dst'].astype(float)
+    match_p_src = matches['match_p_src'].astype(float)
+
+    H = compute_homography_naive(match_p_src, match_p_dst)
+    warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    if visualize:
+        plt.figure()
+        plt.imshow(warp_src)
+        plt.xlabel("warp src")
+        plt.show()
+
+    if visualize:
+        f, axarr = plt.subplots(2, 2)
+        axarr[0][0].imshow(img_src)
+        axarr[0][0].set_title("src")
+        axarr[0][1].imshow(img_dst)
+        axarr[0][1].set_title("dst")
+        axarr[1][0].imshow(warp_src)
+        axarr[1][0].set_title("warp_src")
+        axarr[1][1].imshow(img_dst)
+        axarr[1][1].set_title("dst")
+        plt.show()
+
+    combined = warpTwoImages(img_dst, img_src, H, visualize)
+    if visualize:
+        plt.figure()
+        plt.imshow(combined)
+        plt.xlabel("combined")
+        plt.show()
+
+    ######################################
+    # Part B
+    ######################################
+
+    src_shape = img_src.shape[:2]
+    dst_shape = img_dst.shape[:2]
+    min_dim = min(dst_shape + src_shape)
+    min_err = min_dim*0.05
+
+    print("Test homography for matches_perfect")
+    matches = scipy.io.loadmat('matches_perfect')
+    match_p_dst = matches['match_p_dst'].astype(float)
+    match_p_src = matches['match_p_src'].astype(float)
+    H = compute_homography_naive(match_p_src, match_p_dst)
+    fit, mse = test_homography(H, match_p_src, match_p_dst, min_err)
+    print("Fit percent = {}, mse = {}".format(fit, mse))
+
+    print("Test homography for matches")
+    matches = scipy.io.loadmat('matches')
+    match_p_dst = matches['match_p_dst'].astype(float)
+    match_p_src = matches['match_p_src'].astype(float)
+    H = compute_homography_naive(match_p_src, match_p_dst)
+    fit, mse = test_homography(H, match_p_src, match_p_dst, min_err)
+    print("Fit percent = {}, mse = {}".format(fit, mse))
+
 
 # End of main()
 
