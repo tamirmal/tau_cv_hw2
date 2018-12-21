@@ -57,6 +57,39 @@ def test_homography(H, mp_src, mp_dst, max_err):
     return fit_percent, avg_mse
 # End of test_homography()
 
+
+def compute_homography(mp_src, mp_dst, inliers_percent, max_err):
+    # Experssion from lecture
+    # Needed_iters = log(1-p)/log(1-w^n)
+    w = inliers_percent
+    P = 0.95
+    MAX_ITERS = np.log(1 - P) / np.log(1 - w**4)
+    MAX_ITERS = int(MAX_ITERS + 0.5)
+
+    best_result = {
+        'inliners_num': 0,
+        'H': None,
+    }
+
+    indices = np.arange(len(mp_src[0]))
+
+    for iter in range(MAX_ITERS):
+        np.random.shuffle(indices)
+        pts_to_use = indices[:4]
+        src_pts = mp_src[:, pts_to_use]
+        dst_pts = mp_dst[:, pts_to_use]
+        H = compute_homography_naive(src_pts, dst_pts)
+        fit, mse = test_homography(H, mp_src, mp_dst, max_err)
+        inliers_num = int(len(indices)*fit)
+        if inliers_num > best_result['inliners_num']:
+            best_result['inliners_num'] = inliers_num
+            best_result['H'] = H
+
+        if fit == 1.0:
+            break
+
+    return best_result['H']
+
 ###############################################################################
 # UNIT TEST
 ###############################################################################
@@ -225,6 +258,7 @@ def main():
     min_dim = min(dst_shape + src_shape)
     min_err = min_dim*0.05
 
+    # q7
     print("Test homography for matches_perfect")
     matches = scipy.io.loadmat('matches_perfect')
     match_p_dst = matches['match_p_dst'].astype(float)
@@ -240,6 +274,51 @@ def main():
     H = compute_homography_naive(match_p_src, match_p_dst)
     fit, mse = test_homography(H, match_p_src, match_p_dst, min_err)
     print("Fit percent = {}, mse = {}".format(fit, mse))
+
+    # q8
+    print("Compute homography with RANSAC for matches perfect")
+    matches = scipy.io.loadmat('matches_perfect')
+    match_p_dst = matches['match_p_dst'].astype(float)
+    match_p_src = matches['match_p_src'].astype(float)
+    H = compute_homography(match_p_src, match_p_dst, 0.8, 25)
+    fit, mse = test_homography(H, match_p_src, match_p_dst, 25)
+    print("Fit percent = {}, mse = {}".format(fit, mse))
+
+    print("Compute homography with RANSAC for matches")
+    visualize = True
+    matches = scipy.io.loadmat('matches')
+    match_p_dst = matches['match_p_dst'].astype(float)
+    match_p_src = matches['match_p_src'].astype(float)
+    H = compute_homography(match_p_src, match_p_dst, 0.8, 25)
+    print(H)
+    fit, mse = test_homography(H, match_p_src, match_p_dst, 25)
+    print("Fit percent = {}, mse = {}".format(fit, mse))
+
+    warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    if visualize:
+        plt.figure()
+        plt.imshow(warp_src)
+        plt.xlabel("warp src")
+        plt.show()
+
+    if visualize:
+        f, axarr = plt.subplots(2, 2)
+        axarr[0][0].imshow(img_src)
+        axarr[0][0].set_title("src")
+        axarr[0][1].imshow(img_dst)
+        axarr[0][1].set_title("dst")
+        axarr[1][0].imshow(warp_src)
+        axarr[1][0].set_title("warp_src")
+        axarr[1][1].imshow(img_dst)
+        axarr[1][1].set_title("dst")
+        plt.show()
+
+    combined = warpTwoImages(img_dst, img_src, H, visualize)
+    if visualize:
+        plt.figure()
+        plt.imshow(combined)
+        plt.xlabel("combined")
+        plt.show()
 
 
 # End of main()
