@@ -70,14 +70,22 @@ def forward_mapping(img_src, img_dst, H):
             dst_pnt = apply_homograpy(np.array((x, y)).reshape(1, 2), H)
             dst_x = int(dst_pnt[0] - xmin + 0.5)
             dst_y = int(dst_pnt[1] - ymin + 0.5)
+
+            # Make sure not crossing boundaries
+            dst_x = min(dst_x, new_img.shape[1] - 1)
+            dst_y = min(dst_y, new_img.shape[0] - 1)
+            dst_x = max(dst_x, 0)
+            dst_y = max(dst_y, 0)
+
             new_img[dst_y, dst_x, :] = img_src[y, x, :]/255
 
-    if True:
+    if False:
         plt.figure()
         plt.imshow(new_img)
         plt.show()
 
-    print("DONE")
+    return new_img
+#    print("DONE")
 
 def test_homography_full(H, mp_src, mp_dst, max_err):
     pts_src = np.array(mp_src).T.reshape(-1, 1, 2)
@@ -230,7 +238,7 @@ def main():
     ######################################
     # q2:5
     print("Matches_Perfect")
-    visualize = False
+    visualize = True
 
     matches = scipy.io.loadmat('matches_perfect') #loading perfect matches
     match_p_dst = matches['match_p_dst'].astype(float)
@@ -240,14 +248,14 @@ def main():
     print("Using openCV cv2.warpPerspective")
     cv2_warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
     print("Using HW forward Mapping")
-    forward_mapping(img_src, img_dst, H)
+    hw_warp_src = forward_mapping(img_src, img_dst, H)
 
     if visualize:
-        f, axarr = plt.subplots(1, 2)
-        axarr[0][0].imshow(cv2_warp_src)
-        axarr[0][0].set_title("cv2 warp src")
-        axarr[0][1].imshow(img_dst)
-        axarr[0][1].set_title("HW FWD Mapping")
+        f, axarr = plt.subplots(2)
+        axarr[0].imshow(cv2_warp_src)
+        axarr[0].set_title("cv2 warp src")
+        axarr[1].imshow(hw_warp_src)
+        axarr[1].set_title("HW FWD Mapping")
         plt.show()
 
     if visualize:
@@ -256,33 +264,42 @@ def main():
         axarr[0][0].set_title("src")
         axarr[0][1].imshow(img_dst)
         axarr[0][1].set_title("dst")
-        axarr[1][0].imshow(warp_src)
-        axarr[1][0].set_title("warp_src")
+        axarr[1][0].imshow(hw_warp_src)
+        axarr[1][0].set_title("hw_warp_src")
         axarr[1][1].imshow(img_dst)
         axarr[1][1].set_title("dst")
         plt.show()
 
-    combined = warpTwoImages(img_dst, img_src, H, visualize)
-    if visualize:
-        plt.figure()
-        plt.imshow(combined)
-        plt.xlabel("combined")
-        plt.show()
+    """
+    if False:  # This belongs to Part C
+        combined = warpTwoImages(img_dst, img_src, H, visualize)
+        if visualize:
+            plt.figure()
+            plt.imshow(combined)
+            plt.xlabel("combined")
+            plt.show()
+    """
 
     # q6
     print("Matches")
-    visualize = False
+    visualize = True
 
     matches = scipy.io.loadmat('matches')  # loading matches
     match_p_dst = matches['match_p_dst'].astype(float)
     match_p_src = matches['match_p_src'].astype(float)
 
     H = compute_homography_naive(match_p_src, match_p_dst)
-    warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    print("Using openCV cv2.warpPerspective")
+    cv2_warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    print("Using HW forward Mapping")
+    hw_warp_src = forward_mapping(img_src, img_dst, H)
+
     if visualize:
-        plt.figure()
-        plt.imshow(warp_src)
-        plt.xlabel("warp src")
+        f, axarr = plt.subplots(2)
+        axarr[0].imshow(cv2_warp_src)
+        axarr[0].set_title("cv2 warp src")
+        axarr[1].imshow(hw_warp_src)
+        axarr[1].set_title("HW FWD Mapping")
         plt.show()
 
     if visualize:
@@ -291,18 +308,21 @@ def main():
         axarr[0][0].set_title("src")
         axarr[0][1].imshow(img_dst)
         axarr[0][1].set_title("dst")
-        axarr[1][0].imshow(warp_src)
-        axarr[1][0].set_title("warp_src")
+        axarr[1][0].imshow(hw_warp_src)
+        axarr[1][0].set_title("hw_warp_src")
         axarr[1][1].imshow(img_dst)
         axarr[1][1].set_title("dst")
         plt.show()
 
-    combined = warpTwoImages(img_dst, img_src, H, visualize)
-    if visualize:
-        plt.figure()
-        plt.imshow(combined)
-        plt.xlabel("combined")
-        plt.show()
+    """
+    if False:  # This belongs to Part C
+        combined = warpTwoImages(img_dst, img_src, H, visualize)
+        if visualize:
+            plt.figure()
+            plt.imshow(combined)
+            plt.xlabel("combined")
+            plt.show()
+    """
 
     ######################################
     # Part B
