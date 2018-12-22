@@ -236,9 +236,10 @@ def main():
     ######################################
     # Part A
     ######################################
+    print("################# PART A #################")
     # q2:5
     print("Matches_Perfect")
-    visualize = True
+    visualize = False
 
     matches = scipy.io.loadmat('matches_perfect') #loading perfect matches
     match_p_dst = matches['match_p_dst'].astype(float)
@@ -282,7 +283,7 @@ def main():
 
     # q6
     print("Matches")
-    visualize = True
+    visualize = False
 
     matches = scipy.io.loadmat('matches')  # loading matches
     match_p_dst = matches['match_p_dst'].astype(float)
@@ -327,11 +328,14 @@ def main():
     ######################################
     # Part B
     ######################################
-
-    src_shape = img_src.shape[:2]
-    dst_shape = img_dst.shape[:2]
-    min_dim = min(dst_shape + src_shape)
-    min_err = min_dim*0.05
+    print("################# PART B #################")
+    visualize = True
+#    src_shape = img_src.shape[:2]
+#    dst_shape = img_dst.shape[:2]
+#    min_dim = min(dst_shape + src_shape)
+#    min_err = min_dim*0.05
+    min_err = 25
+    inliers_percent = 0.8
 
     # q7
     print("Test homography for matches_perfect")
@@ -339,6 +343,7 @@ def main():
     match_p_dst = matches['match_p_dst'].astype(float)
     match_p_src = matches['match_p_src'].astype(float)
     H = compute_homography_naive(match_p_src, match_p_dst)
+    print(H)
     fit, mse = test_homography(H, match_p_src, match_p_dst, min_err)
     print("Fit percent = {}, mse = {}".format(fit, mse))
 
@@ -347,54 +352,33 @@ def main():
     match_p_dst = matches['match_p_dst'].astype(float)
     match_p_src = matches['match_p_src'].astype(float)
     H = compute_homography_naive(match_p_src, match_p_dst)
+    print(H)
     fit, mse = test_homography(H, match_p_src, match_p_dst, min_err)
     print("Fit percent = {}, mse = {}".format(fit, mse))
 
     # q8
-    print("Compute homography with RANSAC for matches perfect")
-    matches = scipy.io.loadmat('matches_perfect')
-    match_p_dst = matches['match_p_dst'].astype(float)
-    match_p_src = matches['match_p_src'].astype(float)
-    H = compute_homography(match_p_src, match_p_dst, 0.8, 25)
-    fit, mse = test_homography(H, match_p_src, match_p_dst, 25)
-    print("Fit percent = {}, mse = {}".format(fit, mse))
-
     print("Compute homography with RANSAC for matches")
     visualize = True
     matches = scipy.io.loadmat('matches')
     match_p_dst = matches['match_p_dst'].astype(float)
     match_p_src = matches['match_p_src'].astype(float)
-    H = compute_homography(match_p_src, match_p_dst, 0.8, 25)
+    H = compute_homography(match_p_src, match_p_dst, inliers_percent, min_err)
     print(H)
-    fit, mse = test_homography(H, match_p_src, match_p_dst, 25)
+    fit, mse = test_homography(H, match_p_src, match_p_dst, min_err)
     print("Fit percent = {}, mse = {}".format(fit, mse))
 
-    warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
-    if visualize:
-        plt.figure()
-        plt.imshow(warp_src)
-        plt.xlabel("warp src")
-        plt.show()
+    print("Using openCV cv2.warpPerspective")
+    cv2_warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    print("Using HW forward Mapping")
+    hw_warp_src = forward_mapping(img_src, img_dst, H)
 
     if visualize:
-        f, axarr = plt.subplots(2, 2)
-        axarr[0][0].imshow(img_src)
-        axarr[0][0].set_title("src")
-        axarr[0][1].imshow(img_dst)
-        axarr[0][1].set_title("dst")
-        axarr[1][0].imshow(warp_src)
-        axarr[1][0].set_title("warp_src")
-        axarr[1][1].imshow(img_dst)
-        axarr[1][1].set_title("dst")
+        f, axarr = plt.subplots(2)
+        axarr[0].imshow(cv2_warp_src)
+        axarr[0].set_title("cv2 warp src")
+        axarr[1].imshow(hw_warp_src)
+        axarr[1].set_title("HW FWD Mapping")
         plt.show()
-
-    combined = warpTwoImages(img_dst, img_src, H, visualize)
-    if visualize:
-        plt.figure()
-        plt.imshow(combined)
-        plt.xlabel("combined")
-        plt.show()
-
 
 # End of main()
 
