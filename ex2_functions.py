@@ -485,13 +485,14 @@ def main():
     match_p_src = matches['match_p_src'].astype(float)
     max_err = 25
     inliers_percent = 0.8
-    visualize = True
+    visualize = False
     if visualize:
         pano_img = panorama(img_src, img_dst, match_p_src, match_p_dst, inliers_percent, max_err)
         plt.figure()
         plt.imshow(pano_img)
         plt.title("PANORAMA")
         plt.show()
+
 
 
 # End of main()
