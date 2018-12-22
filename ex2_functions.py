@@ -39,6 +39,46 @@ def compute_homography_naive(mp_src, mp_dst):
 # End of compute_homography_naive
 
 
+def apply_homograpy(pnt, H):
+    homog_pnt = np.column_stack((pnt, 1)).T
+    dst_pnt = H.dot(homog_pnt)
+    return np.array((dst_pnt[0]/dst_pnt[2], dst_pnt[1]/dst_pnt[2]))
+
+
+def forward_mapping(img_src, img_dst, H):
+    # src & dst image corners
+    h_dst,w_dst = img_dst.shape[:2]
+    h_src,w_src = img_src.shape[:2]
+    pts_dst = np.float32([[0,0],[0,h_dst],[w_dst,h_dst],[w_dst,0]]).reshape(-1,1,2)
+    pts_src = np.float32([[0,0],[0,h_src],[w_src,h_src],[w_src,0]]).reshape(-1,1,2)
+
+    # 2) Apply transformation on the src corners, we get new src image coordinates in the dest coordinate system.
+    #    We can get negative coordinates here! as the src image might be located "to the left"/"above" of the dst image
+    pts_src_in_dst = [apply_homograpy(x, H) for x in pts_src]  # Add ,1 to move into homogenous coordinates
+    pts_src_in_dst = np.array(pts_src_in_dst).reshape(-1, 1, 2)
+    print(pts_src_in_dst)
+
+    # 3) Check what will be the combined image boundaries
+    #    Again - we can get negative values here
+    pts = np.concatenate((pts_dst, pts_src_in_dst), axis=0)
+    [xmin, ymin] = np.int32(pts.min(axis=0).ravel() - 0.5)
+    [xmax, ymax] = np.int32(pts.max(axis=0).ravel() + 0.5)
+
+    new_img = np.ndarray(shape=(ymax-ymin, xmax-xmin, 3))
+    for y in range(img_src.shape[0]):
+        for x in range(img_src.shape[1]):
+            dst_pnt = apply_homograpy(np.array((x, y)).reshape(1, 2), H)
+            dst_x = int(dst_pnt[0] - xmin + 0.5)
+            dst_y = int(dst_pnt[1] - ymin + 0.5)
+            new_img[dst_y, dst_x, :] = img_src[y, x, :]/255
+
+    if True:
+        plt.figure()
+        plt.imshow(new_img)
+        plt.show()
+
+    print("DONE")
+
 def test_homography_full(H, mp_src, mp_dst, max_err):
     pts_src = np.array(mp_src).T.reshape(-1, 1, 2)
     pts_dst = np.array(mp_dst).T.reshape(-1, 1, 2)
@@ -197,12 +237,17 @@ def main():
     match_p_src = matches['match_p_src'].astype(float)
 
     H = compute_homography_naive(match_p_src, match_p_dst)
-    warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    print("Using openCV cv2.warpPerspective")
+    cv2_warp_src = cv2.warpPerspective(img_src, H, (img_dst.shape[1], img_dst.shape[0]))
+    print("Using HW forward Mapping")
+    forward_mapping(img_src, img_dst, H)
 
     if visualize:
-        plt.figure()
-        plt.imshow(warp_src)
-        plt.xlabel("warp src")
+        f, axarr = plt.subplots(1, 2)
+        axarr[0][0].imshow(cv2_warp_src)
+        axarr[0][0].set_title("cv2 warp src")
+        axarr[0][1].imshow(img_dst)
+        axarr[0][1].set_title("HW FWD Mapping")
         plt.show()
 
     if visualize:
