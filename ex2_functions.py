@@ -39,7 +39,7 @@ def compute_homography_naive(mp_src, mp_dst):
 # End of compute_homography_naive
 
 
-def test_homography(H, mp_src, mp_dst, max_err):
+def test_homography_full(H, mp_src, mp_dst, max_err):
     pts_src = np.array(mp_src).T.reshape(-1, 1, 2)
     pts_dst = np.array(mp_dst).T.reshape(-1, 1, 2)
 
@@ -52,8 +52,14 @@ def test_homography(H, mp_src, mp_dst, max_err):
     fit_percent = sum(dist < max_err)/len(dist)
 
     valid_norm = dist[dist < max_err]
+    valid_norm_idx = np.argwhere(dist < max_err)
     avg_mse = sum(valid_norm)/len(valid_norm)
 
+    return fit_percent, avg_mse, valid_norm_idx
+
+
+def test_homography(H, mp_src, mp_dst, max_err):
+    fit_percent, avg_mse, _ = test_homography_full(H, mp_src, mp_dst, max_err)
     return fit_percent, avg_mse
 # End of test_homography()
 
@@ -68,27 +74,31 @@ def compute_homography(mp_src, mp_dst, inliers_percent, max_err):
 
     best_result = {
         'inliners_num': 0,
-        'H': None,
+        'inliners_set': {
+            'src': None,
+            'dst': None
+        }
     }
 
     indices = np.arange(len(mp_src[0]))
 
     for iter in range(MAX_ITERS):
-        np.random.shuffle(indices)
+        np.random.shuffle(indices)  # TODO Should I only shuffle this once ?
         pts_to_use = indices[:4]
         src_pts = mp_src[:, pts_to_use]
         dst_pts = mp_dst[:, pts_to_use]
-        H = compute_homography_naive(src_pts, dst_pts)
-        fit, mse = test_homography(H, mp_src, mp_dst, max_err)
+        H = compute_homography_naive(src_pts, dst_pts)  # Compute with minimal needed points (n=4)
+        fit, mse, valid_idxs = test_homography_full(H, mp_src, mp_dst, max_err)  # Test over full points dataset
+        # Check if this is a new best result - if so, store it
         inliers_num = int(len(indices)*fit)
         if inliers_num > best_result['inliners_num']:
             best_result['inliners_num'] = inliers_num
-            best_result['H'] = H
+            best_result['inliners_set']['src'] = mp_src[:, valid_idxs].reshape(2, -1)
+            best_result['inliners_set']['dst'] = mp_dst[:, valid_idxs].reshape(2, -1)
 
-        if fit == 1.0:
-            break
-
-    return best_result['H']
+    # Compute homography with the largest set of inliners found
+    H = compute_homography_naive(best_result['inliners_set']['src'],  best_result['inliners_set']['dst'])
+    return H
 
 ###############################################################################
 # UNIT TEST
